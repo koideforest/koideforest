@@ -48,6 +48,19 @@ def ReadData( file_path, separator = ' ' ):
         data.append( Line2List( line, separator ) )
     return data
 
+def WriteData( file_path, label, x, y, format_x, format_y ):
+    f = open( file_path, 'w' )
+    f.write( label + '\n' )
+    for x_, y_ in zip( x, y ):
+        f.write( format_x.format( x_ ) )
+        if not hasattr( y_, '__iter__' ):
+            f.write( format_y.format( y_ ) )
+        else:
+            for e in y_:
+                f.write( format_y.format( e ) )
+        f.write( '\n' )
+    f.close()
+
 def PlotData( data_xy ):
     x = data_xy[ 0 ]
     for y in data_xy[ 1: ]:
