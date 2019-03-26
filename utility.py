@@ -2,6 +2,16 @@ import math
 import numpy as np
 from ase.spacegroup import crystal
 from scipy import interpolate
+from scipy.fftpack import fft, fftfreq, fftshift
+
+def FourierTransform( t, s ):
+    N = len( t )
+    delta_t = t[1] - t[0]
+    tilde_s = fft( s ) * delta_t
+    tilde_s = fftshift( tilde_s )
+    omega   = fftfreq( N, delta_t ) * 2. * np.pi
+    omega   = fftshift( omega )
+    return omega, tilde_s
 
 def ChangeX( x, y, new_x ):
 
