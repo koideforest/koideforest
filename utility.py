@@ -2,16 +2,54 @@ import math
 import numpy as np
 from ase.spacegroup import crystal
 from scipy import interpolate
-from scipy.fftpack import fft, fftfreq, fftshift
+from scipy.fftpack import fft, ifft, fftfreq, fftshift
 
 def FourierTransform( t, s ):
+    # tilde{f}( k      ) = \int dx e^{ - i k      x } f( x )
+    # or
+    # tilde{s}( \omega ) = \int dt e^{ - i \omega t } s( t )
+    #                    ~ \Delta_t FFT( s )
+
+    # b[n] = \sum^{N/2}_{m=-N/2} e^{ - 2\pi i n m / N } a[m]
+
+    # 2\pi n m / N = ( 2\pi n / ( N \Delta ) ) ( \Delta m )
+    #              = k_n x_m = \omega t
+
     N = len( t )
     delta_t = t[1] - t[0]
-    tilde_s = fft( s ) * delta_t
-    tilde_s = fftshift( tilde_s )
+    fft_s   = fft( s )
+    fft_s   = fftshift( fft_s )
+    tilde_s = delta_t * fft_s
+
+    # fftfreq: [ 0, 1, ..., N/2-1, -N/2, ..., -1 ] / (N \Delta)
     omega   = fftfreq( N, delta_t ) * 2. * np.pi
     omega   = fftshift( omega )
-    return omega, tilde_s
+    return omega, tilde_s, fft_s
+
+def IFourierTransform( omega, tilde_s ):
+    # f( x ) = (1/(2\pi)) \int dk      e^{ i k      x } \tilde f( k      )
+    # or
+    # s( t ) = (1/(2\pi)) \int d\omega e^{ i \omega t } \tilde s( \omega )
+    #        ~ (N/(2\pi)) \Delta_\omega IFFT( \tilde s )
+    #      ( ~ (N/(2\pi)) \Delta_\omega \Delta_t IFFT( fft_s ) = IFFT( fft_s ) )
+
+    # Delta_\omega = 2\pi / ( N \Delta_t ) = 2\pi / T
+    # Delta_t      = T / N 
+
+    # a[m] = (1/N) \sum^{N/2}_{n=-N/2} e^{ - 2\pi i n m / N } b[n]
+
+    N       = len( omega )
+    delta_omega = omega[1] - omega[0]
+
+    # Caution: omega and tilde_s were already operated by fftshift!
+    # fftshift( fftshift( a ) ) = a if N is even.
+    s  = ifft( fftshift( tilde_s ) )
+    s *= N / (2.*np.pi) * delta_omega  # "s" does not need fftshift
+
+    # fftfreq: [ 0, 1, ..., N/2-1, -N/2, ..., -1 ] / (N \Delta)
+    # 1 / (N \Delta_omega) = \Delta_t / 2\pi
+    t = fftshift( fftfreq( N, delta_omega ) * 2.*np.pi ) 
+    return t, s
 
 def ChangeX( x, y, new_x ):
 
