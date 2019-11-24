@@ -98,17 +98,17 @@ def NeighborFCC1( a ):
 def NeighborFCC2( a ):
     return NeighborSC1( a )
 
-def TransferIntegral( R ):
+def SlaterKoster_ss( R, sigma ):
     T = []
     for r_ in R:
-        T.append( -0.2 )
+        T.append( sigma )
     return T
 
 if __name__ == '__main__':
 
     a = 2
     R = NeighborFCC1( a )
-    T = TransferIntegral( R )
+    T = SlaterKoster_ss( sigma )
     
     #vec_k = ReciprocalVector( list( np.pi/a * np.array( [ 1, 1, 1 ] ) ), 'L' )
     vec_k = ReciprocalVector( )
