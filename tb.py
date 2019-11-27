@@ -356,7 +356,7 @@ def SolveEigen_Hop( K, E0, Hop ):
                         i2 = ia2 * len( Hop.L[ia2] ) + il2
                         if i1 == i2:
                             H[i1][i2] += E0[i1]
-                        H[i1][i2] += Hop.Hamiltonian( k_, ia1, ia2, il1, il2 )
+                        H[i1][i2] += Hop.Hamiltonian( k_, ia1, il1, ia2, il2 )
         value, vector = np.linalg.eigh( H )
         eigen = sorted( [ [ val, vec ] for val, vec in zip( value, vector ) ], key = itemgetter( 0 ) )
         E.append( [ eig[0] for eig in eigen ] )
