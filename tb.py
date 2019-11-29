@@ -1,5 +1,6 @@
 import itertools
 import numpy as np
+from koideforest import SlaterKoster
 from matplotlib import pyplot as plt
 from operator import itemgetter
 
@@ -69,7 +70,8 @@ class Hopping():
 
         A        = atoms
         L        = orbitals
-        self.vector = [ [ [] for a2 in A ] for a1 in A ]
+        #self.vector = [ [ [] for a2 in A ] for a1 in A ]
+        self.vector     = [ [ [ [ [] for l2 in L[ia2] ] for l1 in L[ia1] ] for ia2 in range( len( A ) ) ] for ia1 in range( len( A ) ) ]
         self.TI     = [ [ [ [ [] for l2 in L[ia2] ] for l1 in L[ia1] ] for ia2 in range( len( A ) ) ] for ia1 in range( len( A ) ) ]
         self.T      = TranslationVector
         self.A      = A
@@ -78,16 +80,39 @@ class Hopping():
     def add_hop( self, index1, index2, n_set, TI ):
         # index = ( ia, il )
 
-        self.vector[index1[0]][index2[0]].append( sum( [ n * tv for n, tv in zip( n_set, self.T ) ] ) )
-        self.TI[index1[0]][index2[0]][index1[1]][index2[1]].append( TI )
+        #self.vector[ index1[0] ][ index2[0] ].append( sum( [ n * tv for n, tv in zip( n_set, self.T ) ] ) )
+        self.vector[ index1[0] ][ index2[0] ][ index1[1] ][index2[1]].append( sum( [ n * tv for n, tv in zip( n_set, self.T ) ] ) )
+        self.TI[ index1[0] ][ index2[0] ][ index1[1] ][ index2[1] ].append( TI )
 
         # transpose
-        self.vector[index2[0]][index1[0]].append( - sum( [ n * tv for n, tv in zip( n_set, self.T ) ] ) )
-        self.TI[index2[0]][index1[0]][index2[1]][index1[1]].append( TI )
+        #self.vector[ index2[0] ][ index1[0] ].append( - sum( [ n * tv for n, tv in zip( n_set, self.T ) ] ) )
+        self.vector[ index2[0] ][ index1[0] ][ index2[1] ][ index1[1] ].append( - sum( [ n * tv for n, tv in zip( n_set, self.T ) ] ) )
+        self.TI[ index2[0] ][ index1[0] ][ index2[1] ][ index1[1] ].append( TI )
+
+    def add_hop_sk( self, index1, index2, n_set, sigma, pi, delta ):
+        # index = ( ia, il )
+        
+        r  = sum( [ n * tv for n, tv in zip( n_set, self.T ) ] )
+        ti = SlaterKoster.sk( r, ( sigma, pi, delta ),
+                              self.L[ index1[0] ][ index1[1] ], self.L[ index2[0] ][ index2[1] ] )
+        
+        #self.vector[ index1[0] ][ index2[0] ].append( r )
+        self.vector[ index1[0] ][ index2[0] ][ index1[1] ][ index2[1] ].append( r )
+        self.TI[ index1[0] ][ index2[0] ][ index1[1] ][ index2[1] ].append( ti )
+
+        # transpose
+
+        ti = SlaterKoster.sk( -r, ( sigma, pi, delta ),
+                               self.L[ index2[0] ][ index2[1] ], self.L[ index1[0] ][ index1[1] ] )
+        
+        #self.vector[ index2[0] ][ index1[0] ].append( r )
+        self.vector[ index2[0] ][ index1[0] ][ index2[1] ][ index1[1] ].append( -r )
+        self.TI[ index2[0] ][ index1[0] ][ index2[1] ][ index1[1] ].append( ti )
 
     def Hamiltonian( self, k, ia1, il1, ia2, il2 ):
         return sum([ np.exp( 1j * np.dot( k, r_ ) ) * t_
-                     for r_, t_ in zip( self.vector[ia1][ia2], self.TI[ia1][ia2][il1][il2] ) ])
+                     #for r_, t_ in zip( self.vector[ia1][ia2], self.TI[ia1][ia2][il1][il2] ) ])
+                     for r_, t_ in zip( self.vector[ia1][ia2][il1][il2], self.TI[ia1][ia2][il1][il2] ) ])
 
 
 def Neighbor( T, nt, A, dn ):
@@ -235,94 +260,6 @@ def AtomicCoordination_Graphene( LC ):
     return ( a1, a2 )
     
 
-def SlaterKoster_ss( r, sigma ):
-    return sigma
-
-def SlaterKoster_sp( r, sigma, xyz = 'x' ):
-    # c = cos\theta = e_xyz \cdot ( R - 0 ) / ( |e_xyz| | R - 0 | )
-    epsilon = 1e-7
-    if xyz == 'x':
-        c = r[0]
-    elif xyz == 'y':
-        c = r[1]
-    else:  # xyz == 'z'
-        c = r[2]
-    c /= np.linalg.norm( r ) + epsilon
-    return c * sigma
-
-def SlaterKoster_ps( r, sigma, xyz = 'x' ):
-    return SlaterKoster_sp( -r, sigma, xyz )
-
-def SlaterKoster_pp( r, sigma, pi, xyz1 = 'x', xyz2 = 'x' ):
-    epsilon = 1e-7
-    if not xyz1 in ( 'x', 'y', 'z' ):
-        return False
-    if not xyz2 in ( 'x', 'y', 'z' ):
-        return False
-    if xyz1 == xyz2:
-        if xyz1 == 'x':
-            c = r[0]
-        elif xyz1 == 'y':
-            c = r[1]
-        else:  # xyz1 == xyz2 == 'z'
-            c = r[2]
-        c /= np.linalg.norm( r ) + epsilon
-        return c**2 * sigma + ( 1 - c**2 ) * pi
-    else:
-        if xyz1 == 'x':
-            c1 = r[0]
-            if xyz2 == 'y':
-                c2 = r[1]
-            else:  # xyz2 == 'z'
-                c2 = r[2]
-        elif xyz2 == 'y':
-            c1 = r[1]
-            if xyz2 == 'z':
-                c2 = r[2]
-            else:  # xyz2 == 'x'
-                c2 = r[0]
-        else:  # xyz1 == 'z'
-            c1 = r[2]
-            if xyz2 == 'x':
-                c2 = r[0]
-            else:  # xyz2 == 'y'
-                c2 = r[1]
-        c = c1 * c2 / ( np.linalg.norm( r ) + epsilon )**2
-        return c * ( sigma - pi )
-
-def SlaterKoster( r, V, l1, l2 ):
-    # V = ( sigma, pi, delta )
-    L = { l1, l2 }
-    if   L == { 's', 's' }:
-        return SlaterKoster_ss( r, V[0] )
-    elif L == { 's', 'px' }:
-        r_ = r
-        if l1 == 'px':
-            r_ = -r
-        return SlaterKoster_sp( r_, V[0], 'x' )
-    elif L == { 's', 'py' }:
-        r_ = r
-        if l1 == 'py':
-            r_ = -r
-        return SlaterKoster_sp( r_, V[0], 'y' )
-    elif L == { 's', 'px' }:
-        r_ = r
-        if l1 == 'pz':
-            r_ = -r
-        return SlaterKoster_sp( r_, V[0], 'z' )
-    elif L == { 'px', 'px' }:
-        return SlaterKoster_pp( r, V[0], V[1], 'x', 'x' )
-    elif L == { 'py', 'py' }:
-        return SlaterKoster_pp( r, V[0], V[1], 'y', 'y' )
-    elif L == { 'pz', 'pz' }:
-        return SlaterKoster_pp( r, V[0], V[1], 'z', 'z' )
-    elif L == { 'px', 'py' }:
-        return SlaterKoster_pp( r, V[0], V[1], 'x', 'y' )
-    elif L == { 'py', 'pz' }:
-        return SlaterKoster_pp( r, V[0], V[1], 'y', 'z' )
-    elif L == { 'pz', 'px' }:
-        return SlaterKoster_pp( r, V[0], V[1], 'z', 'x' )
-
 def SolveEigen( K, A, T, R, L, E0, V ):
     E, U = [], []
     for k_ in K:
@@ -335,8 +272,7 @@ def SolveEigen( K, A, T, R, L, E0, V ):
                         i2 = ia2 * len( L[ia2] ) + il2
                         if i1 == i2:
                             H[i1][i2] += E0[i1]
-                        H[i1][i2] += sum( [   np.exp( 1j * np.dot( k_, r_ ) )
-                                            * SlaterKoster( r_, V[i1][i2], l1_, l2_ )
+                        H[i1][i2] += sum( [ np.exp( 1j * np.dot( k_, r_ ) ) * sk( r_, V[i1][i2], l1_, l2_ )
                                             for r_ in R[ia1][ia2] ] )
         value, vector = np.linalg.eigh( H )
         eigen = sorted( [ [ val, vec ] for val, vec in zip( value, vector ) ], key = itemgetter( 0 ) )
@@ -376,10 +312,10 @@ if __name__ == '__main__':
     # s band (Slater-Koster)
     h0    = -1
     sigma = -0.2
-    T     = SlaterKoster_ss( R, sigma )
+    T     = SlaterKoster.ss( R, sigma )
     E     = []
     for k_ in vec_k.k:
-        E_ = [ np. exp( 1j * np.dot( k_, r_ ) ) * SlaterKoster_ss( r_, sigma ) for r_ in R[0][0] ]
+        E_ = [ np. exp( 1j * np.dot( k_, r_ ) ) * SlaterKoster.ss( r_, sigma ) for r_ in R[0][0] ]
         E.append( h0 + sum( E_ ).real )
     
     fig = plt.figure()
@@ -397,14 +333,15 @@ if __name__ == '__main__':
     L  = ( ( 's', ) )
     E0      = np.zeros( np.size( L ) )
     E0[ 0 ] = -1.0
+    sigma   = -0.2
 
     Hop = Hopping( A, L, T )
-    Hop.add_hop( ( 0, 0 ), ( 0, 0 ), (  1,  0,  0 ), -0.2 )
-    Hop.add_hop( ( 0, 0 ), ( 0, 0 ), (  0,  1,  0 ), -0.2 )
-    Hop.add_hop( ( 0, 0 ), ( 0, 0 ), (  0,  0,  1 ), -0.2 )
-    Hop.add_hop( ( 0, 0 ), ( 0, 0 ), (  0, -1,  1 ), -0.2 )
-    Hop.add_hop( ( 0, 0 ), ( 0, 0 ), (  1,  0, -1 ), -0.2 )
-    Hop.add_hop( ( 0, 0 ), ( 0, 0 ), ( -1,  1,  0 ), -0.2 )
+    Hop.add_hop( ( 0, 0 ), ( 0, 0 ), (  1,  0,  0 ), sigma )
+    Hop.add_hop( ( 0, 0 ), ( 0, 0 ), (  0,  1,  0 ), sigma )
+    Hop.add_hop( ( 0, 0 ), ( 0, 0 ), (  0,  0,  1 ), sigma )
+    Hop.add_hop( ( 0, 0 ), ( 0, 0 ), (  0, -1,  1 ), sigma )
+    Hop.add_hop( ( 0, 0 ), ( 0, 0 ), (  1,  0, -1 ), sigma )
+    Hop.add_hop( ( 0, 0 ), ( 0, 0 ), ( -1,  1,  0 ), sigma )
 
     E, U = SolveEigen_Hop( vec_k.k, E0, Hop )
     
@@ -430,7 +367,7 @@ if __name__ == '__main__':
                 if i1 == i2:
                     H[ i1 ][ i2 ] += h0
                 H[ i1 ][ i2 ] += sum( [   np.exp( 1j * np.dot( k_, r_ ) ) 
-                                        * SlaterKoster_pp( r_, sigma, pi, xyz[i1], xyz[i2] ) for r_ in R[0][0] ] )
+                                        * SlaterKoster.pp( r_, sigma, pi, xyz[i1], xyz[i2] ) for r_ in R[0][0] ] )
         value, vector = np.linalg.eigh( np.real( H ) )
         eigen = sorted( [ [ val, vec ] for val, vec in zip( value, vector ) ], key = itemgetter( 0 ) )
         E.append( [ eig[0] for eig in eigen ] )
