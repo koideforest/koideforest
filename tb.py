@@ -297,7 +297,7 @@ def SolveEigen_Hop( K, E0, Hop ):
         eigen = sorted( [ [ val, vec ] for val, vec in zip( value, vector ) ], key = itemgetter( 0 ) )
         E.append( [ eig[0] for eig in eigen ] )
         U.append( [ eig[1] for eig in eigen ] )
-    return np.array( E ).T, np.array( U ).transpose( 1, 2, 0 )
+    return np.array( E ).T, np.array( U ).transpose( 1, 2, 0 )  # U[band][orb][k]
 
 if __name__ == '__main__':
 
