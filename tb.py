@@ -71,8 +71,16 @@ class Hopping():
         A        = atoms
         L        = orbitals
         #self.vector = [ [ [] for a2 in A ] for a1 in A ]
-        self.vector     = [ [ [ [ [] for l2 in L[ia2] ] for l1 in L[ia1] ] for ia2 in range( len( A ) ) ] for ia1 in range( len( A ) ) ]
-        self.TI     = [ [ [ [ [] for l2 in L[ia2] ] for l1 in L[ia1] ] for ia2 in range( len( A ) ) ] for ia1 in range( len( A ) ) ]
+        self.vector     = [ [ [ [ [] 
+                                  for l2 in L[ia2] ] 
+                                  for l1 in L[ia1] ] 
+                                  for ia2 in range( len( A ) ) ] 
+                                  for ia1 in range( len( A ) ) ]
+        self.TI     = [ [ [ [ [] 
+                              for l2 in L[ia2] ] 
+                              for l1 in L[ia1] ] 
+                              for ia2 in range( len( A ) ) ]
+                              for ia1 in range( len( A ) ) ]
         self.T      = TranslationVector
         self.A      = A
         self.L      = L
@@ -260,7 +268,7 @@ def AtomicCoordination_Graphene( LC ):
     return ( a1, a2 )
     
 
-def SolveEigen( K, A, T, R, L, E0, V ):
+def SolveEigen_SK( K, A, T, R, L, E0, V ):
     E, U = [], []
     for k_ in K:
         H = np.zeros( ( np.size( L ), np.size( L ) ), dtype = np.complex )
@@ -280,7 +288,7 @@ def SolveEigen( K, A, T, R, L, E0, V ):
         U.append( [ eig[1] for eig in eigen ] )
     return np.array( E ).T, np.array( U ).transpose( 1, 2, 0 )
 
-def SolveEigen_Hop( K, E0, Hop ):
+def SolveEigen_Hopping( K, E0, Hop ): 
     E, U = [], []
     for k_ in K:
         H = np.zeros( ( np.size( Hop.L ), np.size( Hop.L ) ), dtype = np.complex )
@@ -293,6 +301,24 @@ def SolveEigen_Hop( K, E0, Hop ):
                         if i1 == i2:
                             H[i1][i2] += E0[i1]
                         H[i1][i2] += Hop.Hamiltonian( k_, ia1, il1, ia2, il2 )
+        value, vector = np.linalg.eigh( H )
+        eigen = sorted( [ [ val, vec ] for val, vec in zip( value, vector ) ], key = itemgetter( 0 ) )
+        E.append( [ eig[0] for eig in eigen ] )
+        U.append( [ eig[1] for eig in eigen ] )
+    return np.array( E ).T, np.array( U ).transpose( 1, 2, 0 )  # U[band][orb][k]
+
+def SolveEigen_HF( K, Hop, H_MF ): 
+    E, U = [], []
+    for k_ in K:
+        H = np.zeros( ( np.size( Hop.L ), np.size( Hop.L ) ), dtype = np.complex )
+        for ia1, a1_ in enumerate( Hop.A ):
+            for ia2, a2_ in enumerate( Hop.A ):
+                for il1, l1_ in enumerate( Hop.L[ia1] ):
+                    for il2, l2_ in enumerate( Hop.L[ia2] ):
+                        i1 = ia1 * len( Hop.L[ia1] ) + il1
+                        i2 = ia2 * len( Hop.L[ia2] ) + il2
+                        H[i1][i2] += Hop.Hamiltonian( k_, ia1, il1, ia2, il2 )
+                        H[i1][i2] += H_MF[ia1][il1][ia2][il2]
         value, vector = np.linalg.eigh( H )
         eigen = sorted( [ [ val, vec ] for val, vec in zip( value, vector ) ], key = itemgetter( 0 ) )
         E.append( [ eig[0] for eig in eigen ] )
@@ -343,7 +369,7 @@ if __name__ == '__main__':
     Hop.add_hop( ( 0, 0 ), ( 0, 0 ), (  1,  0, -1 ), sigma )
     Hop.add_hop( ( 0, 0 ), ( 0, 0 ), ( -1,  1,  0 ), sigma )
 
-    E, U = SolveEigen_Hop( vec_k.k, E0, Hop )
+    E, U = SolveEigen_Hopping( vec_k.k, E0, Hop )
     
     fig = plt.figure()
     ax  = fig.add_subplot( 1, 1, 1 )
